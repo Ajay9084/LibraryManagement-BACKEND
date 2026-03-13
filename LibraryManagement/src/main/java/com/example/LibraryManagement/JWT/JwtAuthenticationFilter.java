@@ -1,83 +1,76 @@
 package com.example.LibraryManagement.JWT;
 
-import com.example.LibraryManagement.Repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-	private final JwtService jwtService;
-	private final UserRepository userRepository;
+    private final JwtService jwtService;
 
-	@Override
-	protected void doFilterInternal(HttpServletRequest request,
-									HttpServletResponse response,
-									FilterChain filterChain)
-			throws ServletException, IOException {
+    @Override
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain)
+            throws ServletException, IOException {
 
-		// Skip authentication endpoints
-		if (request.getServletPath().startsWith("/auth")) {
-			filterChain.doFilter(request, response);
-			return;
-		}
+        // Skip auth endpoints — no token needed
+        if (request.getServletPath().startsWith("/auth")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
-		final String authHeader = request.getHeader("Authorization");
+        final String authHeader = request.getHeader("Authorization");
 
-		// No token → continue
-		if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-			filterChain.doFilter(request, response);
-			return;
-		}
+        // No token → pass through, Spring Security will handle it
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
-		try {
-			String jwt = authHeader.substring(7);
-			String username = jwtService.extractUsername(jwt);
+        try {
+            String jwt = authHeader.substring(7);
+            String username = jwtService.extractUsername(jwt);
 
-			if (username != null &&
-					SecurityContextHolder.getContext().getAuthentication() == null) {
+            if (username != null &&
+                    SecurityContextHolder.getContext().getAuthentication() == null) {
 
-				var user = userRepository.findByUsername(username).orElse(null);
+                // Read roles from token — no DB call needed
+                List<GrantedAuthority> authorities = jwtService.extractRoles(jwt);
 
-				if (user != null && jwtService.isTokenValid(jwt, user)) {
+                if (!jwtService.isTokenExpired(jwt)) {
+                    UsernamePasswordAuthenticationToken authToken =
+                            new UsernamePasswordAuthenticationToken(
+                                    username,
+                                    null,
+                                    authorities
+                            );
+                    authToken.setDetails(
+                            new WebAuthenticationDetailsSource().buildDetails(request)
+                    );
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
 
-					UsernamePasswordAuthenticationToken authToken =
-							new UsernamePasswordAuthenticationToken(
-									user,
-									null,
-									user.getAuthorities()
-							);
+                    System.out.println("Authenticated: " + username);
+                    System.out.println("Authorities: " + authorities);
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("JWT error: " + e.getMessage());
+        }
 
-					authToken.setDetails(
-							new WebAuthenticationDetailsSource()
-									.buildDetails(request)
-					);
-
-					SecurityContextHolder.getContext().setAuthentication(authToken);
-
-					// DEBUG (remove later)
-					System.out.println("Authenticated user: " + username);
-					System.out.println("Authorities: " + user.getAuthorities());
-				}
-			}
-
-		} catch (Exception e) {
-			// If token invalid → log and continue (don't clear context yet)
-			// Let SecurityConfig handle unauthorized requests properly
-			System.out.println("Invalid JWT: " + e.getMessage());
-		}
-
-		filterChain.doFilter(request, response);
-	}
+        filterChain.doFilter(request, response);
+    }
 }
