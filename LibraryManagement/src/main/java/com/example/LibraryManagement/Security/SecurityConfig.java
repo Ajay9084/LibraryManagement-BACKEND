@@ -90,10 +90,8 @@ public class SecurityConfig {
 	public CorsConfigurationSource corsConfigurationSource() {
 		CorsConfiguration config = new CorsConfiguration();
 		config.setAllowedOrigins(Arrays.asList(
-				"http://localhost:3000",    // React dev server (port 3000)
-				"http://localhost:5173",// Vite dev server (port 5173)
-				"http://localhost:5174",
-				"http://localhost:8080"     // Backend (for testing)
+				
+			"https://librarymanagement-lm.vercel.app"
 		));
 		config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
 		config.setAllowedHeaders(Arrays.asList("*"));
