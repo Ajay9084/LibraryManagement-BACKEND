@@ -35,7 +35,7 @@ public class JwtService {
         List<String> roles = claims.get("roles", List.class);
         if (roles == null) return List.of();
         return roles.stream()
-                .map(SimpleGrantedAuthority("ROLE_" + role))
+                .map(r -> new SimpleGrantedAuthority("ROLE_" + role))
                 .collect(Collectors.toList());
     }
 
