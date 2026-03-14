@@ -28,7 +28,7 @@ public class IssueRecordService {
 		Book book = bookRepository.findById(bookId)
 				.orElseThrow(() -> new RuntimeException("Book Not Found"));
 
-		if (book.getQuantity() <= 0 || !book.getIsAvailable()) {
+		if (book.getQuantity() <= 0 || !Boolean.TRUE.equals(book.getIsAvailable())) {
 			throw new RuntimeException("Book is Not Available");
 		}
 
